@@ -620,8 +620,14 @@ class SecureOnlineShopApp {
                 this.contract.methods.getSellerSales(this.userAddress).call()
             ]);
             
-            const myProducts = products.filter(p => p.seller && p.seller.toLowerCase() === this.userAddress.toLowerCase());
-            const myOrders = allOrders.filter(o => o.seller && o.seller.toLowerCase() === this.userAddress.toLowerCase());
+            // Products created by this seller
+            const myProducts = products.filter(
+                p => p.seller && p.seller.toLowerCase() === this.userAddress.toLowerCase()
+            );
+
+            // Orders for this seller's products (match by productId to avoid relying on seller field)
+            const myProductIds = new Set(myProducts.map(p => String(p.id)));
+            const myOrders = allOrders.filter(o => myProductIds.has(String(o.productId)));
             const pendingOrders = myOrders.filter(o => parseInt(o.status, 10) === 1); // Paid
             
             const myProductsCountEl = document.getElementById('myProductsCount');
