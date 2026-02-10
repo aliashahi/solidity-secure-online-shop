@@ -5,6 +5,7 @@ class SecureOnlineShopApp {
         this.userAddress = null;
         this.contractAddress = null;
         this.contractABI = null;
+        this.currentOrders = [];
         
         this.init();
     }
@@ -194,6 +195,17 @@ class SecureOnlineShopApp {
             connectBtn.classList.add('connected');
             
             this.getBalance();
+        }
+    }
+    
+    async refreshCurrentAccount() {
+        if (!window.ethereum) return;
+        
+        try {
+            const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+            this.userAddress = (accounts && accounts.length > 0) ? accounts[0] : null;
+        } catch (error) {
+            console.error('Error refreshing current account:', error);
         }
     }
     
@@ -417,7 +429,19 @@ class SecureOnlineShopApp {
     }
     
     async loadUserOrders() {
-        if (!this.contract || !this.userAddress) return;
+        if (!this.contract) {
+            this.showNotification('Please connect your wallet first', 'error');
+            return;
+        }
+        
+        await this.refreshCurrentAccount();
+        if (!this.userAddress) {
+            const container = document.getElementById('ordersList');
+            if (container) {
+                container.innerHTML = '<div class="no-data">Please connect your wallet to see your orders.</div>';
+            }
+            return;
+        }
         
         try {
             // #region agent log
@@ -435,7 +459,11 @@ class SecureOnlineShopApp {
             }).catch(() => {});
             // #endregion
 
-            const orders = await this.contract.methods.getBuyerOrders(this.userAddress).call();
+            // Fetch all orders from contract and filter on the frontend
+            const allOrders = await this.contract.methods.getAllOrders().call();
+            const orders = allOrders.filter(o => 
+                o.buyer && o.buyer.toLowerCase() === this.userAddress.toLowerCase()
+            );
 
             // #region agent log
             fetch('http://127.0.0.1:7243/ingest/9d6bb65d-d76f-4d4a-91bb-07d2d0c1b4f4', {
@@ -445,11 +473,12 @@ class SecureOnlineShopApp {
                     runId: 'multi-account-debug-1',
                     hypothesisId: 'H2',
                     location: 'frontend/app.js:loadUserOrders',
-                    message: 'orders fetched',
+                    message: 'orders fetched (filtered by buyer)',
                     data: {
                         userAddress: this.userAddress,
-                        orderCount: orders.length,
-                        buyersSample: orders.slice(0, 3).map(o => o.buyer)
+                        totalOrderCount: allOrders.length,
+                        filteredOrderCount: orders.length,
+                        buyersSample: allOrders.slice(0, 3).map(o => o.buyer)
                     },
                     timestamp: Date.now()
                 })
@@ -470,6 +499,8 @@ class SecureOnlineShopApp {
             return;
         }
         
+        this.currentOrders = orders;
+
         container.innerHTML = orders.map(order => `
             <div class="order-card">
                 <div class="order-header">
@@ -505,6 +536,39 @@ class SecureOnlineShopApp {
                 </div>
             </div>
         `).join('');
+    }
+    
+    filterOrders(e) {
+        const status = e.currentTarget.dataset.status;
+        
+        // Toggle active state on filter buttons
+        document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+        e.currentTarget.classList.add('active');
+        
+        if (!this.currentOrders || this.currentOrders.length === 0) {
+            this.displayOrders([]);
+            return;
+        }
+        
+        if (status === 'all') {
+            this.displayOrders(this.currentOrders);
+            return;
+        }
+        
+        const statusMap = {
+            paid: 1,
+            shipped: 2,
+            delivered: 3
+        };
+        
+        const targetCode = statusMap[status];
+        if (targetCode === undefined) {
+            this.displayOrders(this.currentOrders);
+            return;
+        }
+        
+        const filtered = this.currentOrders.filter(o => parseInt(o.status, 10) === targetCode);
+        this.displayOrders(filtered);
     }
     
     getStatusText(statusCode) {
@@ -544,7 +608,10 @@ class SecureOnlineShopApp {
     }
     
     async updateSellerStats() {
-        if (!this.contract || !this.userAddress) return;
+        if (!this.contract) return;
+        
+        await this.refreshCurrentAccount();
+        if (!this.userAddress) return;
         
         try {
             const products = await this.contract.methods.getActiveProducts().call();
@@ -557,6 +624,112 @@ class SecureOnlineShopApp {
         } catch (error) {
             console.error('Error updating seller stats:', error);
         }
+    }
+    
+    async viewAllOrders() {
+        if (!this.contract) {
+            this.showNotification('Please connect your wallet first', 'error');
+            return;
+        }
+        
+        await this.refreshCurrentAccount();
+        if (!this.userAddress) {
+            this.showNotification('Please connect your wallet first', 'error');
+            return;
+        }
+        
+        try {
+            this.showLoading();
+            
+            const adminAddress = await this.contract.methods.admin().call();
+            if (adminAddress.toLowerCase() !== this.userAddress.toLowerCase()) {
+                this.showNotification('Only admin can view all orders', 'error');
+                return;
+            }
+            
+            const orders = await this.contract.methods.getAllOrders().call();
+            this.displayAdminOrders(orders, { onlyDisputes: false });
+        } catch (error) {
+            console.error('Error loading all orders for admin:', error);
+            this.showNotification('Failed to load all orders', 'error');
+        } finally {
+            this.hideLoading();
+        }
+    }
+    
+    async viewDisputes() {
+        if (!this.contract) {
+            this.showNotification('Please connect your wallet first', 'error');
+            return;
+        }
+        
+        await this.refreshCurrentAccount();
+        if (!this.userAddress) {
+            this.showNotification('Please connect your wallet first', 'error');
+            return;
+        }
+        
+        try {
+            this.showLoading();
+            
+            const adminAddress = await this.contract.methods.admin().call();
+            if (adminAddress.toLowerCase() !== this.userAddress.toLowerCase()) {
+                this.showNotification('Only admin can view disputes', 'error');
+                return;
+            }
+            
+            const orders = await this.contract.methods.getAllOrders().call();
+            const disputedOrders = orders.filter(o => parseInt(o.status, 10) === 5);
+            this.displayAdminOrders(disputedOrders, { onlyDisputes: true });
+        } catch (error) {
+            console.error('Error loading disputes for admin:', error);
+            this.showNotification('Failed to load disputes', 'error');
+        } finally {
+            this.hideLoading();
+        }
+    }
+    
+    displayAdminOrders(orders, options = { onlyDisputes: false }) {
+        const container = document.getElementById('adminContent');
+        if (!container) return;
+        
+        if (!orders || orders.length === 0) {
+            container.innerHTML = `<div class="no-data">${options.onlyDisputes ? 'There are no disputed orders.' : 'There are no orders yet.'}</div>`;
+            return;
+        }
+        
+        container.innerHTML = orders.map(order => `
+            <div class="order-card">
+                <div class="order-header">
+                    <span class="order-id">Order #${order.orderId}</span>
+                    <span class="order-status status-${this.getStatusText(order.status).toLowerCase()}">
+                        ${this.getStatusText(order.status)}
+                    </span>
+                </div>
+                <div class="order-details">
+                    <div class="detail-item">
+                        <span class="detail-label">Product ID:</span>
+                        <span class="detail-value">${order.productId}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Buyer:</span>
+                        <span class="detail-value">${order.buyer}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Seller:</span>
+                        <span class="detail-value">${order.seller}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Total amount:</span>
+                        <span class="detail-value">${this.web3.utils.fromWei(order.totalAmount, 'ether')} ETH</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Created at:</span>
+                        <span class="detail-value">${new Date(order.createdAt * 1000).toLocaleString('en-US')}</span>
+                    </div>
+                </div>
+            </div>
+        `).join('');
     }
     
     displaySellerProducts(products) {
