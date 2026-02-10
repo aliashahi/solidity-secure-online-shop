@@ -614,12 +614,33 @@ class SecureOnlineShopApp {
         if (!this.userAddress) return;
         
         try {
-            const products = await this.contract.methods.getActiveProducts().call();
-            const myProducts = products.filter(p => p.seller.toLowerCase() === this.userAddress.toLowerCase());
+            const [products, allOrders, totalSalesWei] = await Promise.all([
+                this.contract.methods.getActiveProducts().call(),
+                this.contract.methods.getAllOrders().call(),
+                this.contract.methods.getSellerSales(this.userAddress).call()
+            ]);
             
-            document.getElementById('myProductsCount').textContent = myProducts.length;
+            const myProducts = products.filter(p => p.seller && p.seller.toLowerCase() === this.userAddress.toLowerCase());
+            const myOrders = allOrders.filter(o => o.seller && o.seller.toLowerCase() === this.userAddress.toLowerCase());
+            const pendingOrders = myOrders.filter(o => parseInt(o.status, 10) === 1); // Paid
+            
+            const myProductsCountEl = document.getElementById('myProductsCount');
+            if (myProductsCountEl) {
+                myProductsCountEl.textContent = myProducts.length;
+            }
+            
+            const pendingOrdersCountEl = document.getElementById('pendingOrdersCount');
+            if (pendingOrdersCountEl) {
+                pendingOrdersCountEl.textContent = pendingOrders.length;
+            }
+            
+            const totalEarningsEl = document.getElementById('totalEarnings');
+            if (totalEarningsEl) {
+                totalEarningsEl.textContent = `${this.web3.utils.fromWei(totalSalesWei, 'ether')} ETH`;
+            }
             
             this.displaySellerProducts(myProducts);
+            this.displaySellerOrders(myOrders);
             
         } catch (error) {
             console.error('Error updating seller stats:', error);
@@ -728,8 +749,54 @@ class SecureOnlineShopApp {
                         <span class="detail-value">${new Date(order.createdAt * 1000).toLocaleString('en-US')}</span>
                     </div>
                 </div>
+                ${options.onlyDisputes ? `
+                <div class="order-actions">
+                    <button class="btn-view" onclick="app.adminResolveDispute(${order.orderId}, true)">
+                        Buyer wins
+                    </button>
+                    <button class="btn-buy" onclick="app.adminResolveDispute(${order.orderId}, false)">
+                        Seller wins
+                    </button>
+                </div>
+                ` : ''}
             </div>
         `).join('');
+    }
+    
+    async adminResolveDispute(orderId, buyerWins) {
+        if (!this.contract) {
+            this.showNotification('Please connect your wallet first', 'error');
+            return;
+        }
+        
+        await this.refreshCurrentAccount();
+        if (!this.userAddress) {
+            this.showNotification('Please connect your wallet first', 'error');
+            return;
+        }
+        
+        try {
+            this.showLoading();
+            
+            const adminAddress = await this.contract.methods.admin().call();
+            if (adminAddress.toLowerCase() !== this.userAddress.toLowerCase()) {
+                this.showNotification('Only admin can resolve disputes', 'error');
+                return;
+            }
+            
+            await this.contract.methods.resolveDispute(orderId, buyerWins).send({
+                from: this.userAddress,
+                gas: 300000
+            });
+            
+            this.showNotification('Dispute resolved successfully', 'success');
+            await this.viewDisputes();
+        } catch (error) {
+            console.error('Error resolving dispute:', error);
+            this.showNotification('Failed to resolve dispute', 'error');
+        } finally {
+            this.hideLoading();
+        }
     }
     
     displaySellerProducts(products) {
@@ -754,6 +821,87 @@ class SecureOnlineShopApp {
                 `).join('')}
             </div>
         `;
+    }
+    
+    displaySellerOrders(orders) {
+        const container = document.getElementById('sellerOrders');
+        if (!container) return;
+        
+        if (!orders || orders.length === 0) {
+            container.innerHTML = '<div class="no-data">You do not have any orders for your products yet.</div>';
+            return;
+        }
+        
+        container.innerHTML = orders.map(order => `
+            <div class="order-card">
+                <div class="order-header">
+                    <span class="order-id">Order #${order.orderId}</span>
+                    <span class="order-status status-${this.getStatusText(order.status).toLowerCase()}">
+                        ${this.getStatusText(order.status)}
+                    </span>
+                </div>
+                <div class="order-details">
+                    <div class="detail-item">
+                        <span class="detail-label">Product ID:</span>
+                        <span class="detail-value">${order.productId}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Buyer:</span>
+                        <span class="detail-value">${order.buyer}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Quantity:</span>
+                        <span class="detail-value">${order.quantity}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Total amount:</span>
+                        <span class="detail-value">${this.web3.utils.fromWei(order.totalAmount, 'ether')} ETH</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Created at:</span>
+                        <span class="detail-value">${new Date(order.createdAt * 1000).toLocaleString('en-US')}</span>
+                    </div>
+                </div>
+                <div class="order-actions">
+                    ${parseInt(order.status, 10) === 1 ? `
+                        <button class="btn-buy" onclick="app.markOrderAsShipped(${order.orderId})">
+                            Mark as shipped
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+        `).join('');
+    }
+    
+    async markOrderAsShipped(orderId) {
+        if (!this.contract) {
+            this.showNotification('Please connect your wallet first', 'error');
+            return;
+        }
+        
+        await this.refreshCurrentAccount();
+        if (!this.userAddress) {
+            this.showNotification('Please connect your wallet first', 'error');
+            return;
+        }
+        
+        try {
+            this.showLoading();
+            
+            await this.contract.methods.markAsShipped(orderId).send({
+                from: this.userAddress,
+                gas: 300000
+            });
+            
+            this.showNotification('Order marked as shipped', 'success');
+            await this.updateSellerStats();
+            await this.loadUserOrders();
+        } catch (error) {
+            console.error('Error marking order as shipped:', error);
+            this.showNotification('Failed to mark order as shipped', 'error');
+        } finally {
+            this.hideLoading();
+        }
     }
     
     switchTab(e) {
@@ -818,5 +966,7 @@ window.addEventListener('load', () => {
 window.app = {
     showBuyModal: (productId) => app.showBuyModal(productId),
     viewProductDetails: (productId) => app.viewProductDetails(productId),
-    cancelOrder: (orderId) => app.cancelOrder(orderId)
+    cancelOrder: (orderId) => app.cancelOrder(orderId),
+    markOrderAsShipped: (orderId) => app.markOrderAsShipped(orderId),
+    adminResolveDispute: (orderId, buyerWins) => app.adminResolveDispute(orderId, buyerWins)
 };
