@@ -533,6 +533,11 @@ class SecureOnlineShopApp {
                             Cancel order
                         </button>
                     ` : ''}
+                    ${parseInt(order.status, 10) === 2 ? `
+                        <button class="btn-buy" onclick="app.confirmDelivery(${order.orderId})">
+                            Confirm delivery
+                        </button>
+                    ` : ''}
                 </div>
             </div>
         `).join('');
@@ -606,7 +611,31 @@ class SecureOnlineShopApp {
             this.hideLoading();
         }
     }
-    
+
+    async confirmDelivery(orderId) {
+        if (!this.contract || !this.userAddress) {
+            this.showNotification('Please connect your wallet first', 'error');
+            return;
+        }
+
+        try {
+            this.showLoading();
+
+            await this.contract.methods.confirmDelivery(orderId).send({
+                from: this.userAddress,
+                gas: 300000
+            });
+
+            await this.loadUserOrders();
+            this.showNotification('Delivery confirmed successfully', 'success');
+        } catch (error) {
+            console.error('Error confirming delivery:', error);
+            this.showNotification('Failed to confirm delivery', 'error');
+        } finally {
+            this.hideLoading();
+        }
+    }
+
     async updateSellerStats() {
         if (!this.contract) return;
         
@@ -973,6 +1002,7 @@ window.app = {
     showBuyModal: (productId) => app.showBuyModal(productId),
     viewProductDetails: (productId) => app.viewProductDetails(productId),
     cancelOrder: (orderId) => app.cancelOrder(orderId),
+    confirmDelivery: (orderId) => app.confirmDelivery(orderId),
     markOrderAsShipped: (orderId) => app.markOrderAsShipped(orderId),
     adminResolveDispute: (orderId, buyerWins) => app.adminResolveDispute(orderId, buyerWins)
 };
