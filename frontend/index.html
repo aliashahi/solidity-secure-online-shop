@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Online Shop - Blockchain Project</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.7.0/dist/web3.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-top">
+                <h1><i class="fas fa-lock"></i> Secure Online Shop</h1>
+                <div class="wallet-section">
+                    <p id="accountAddress" class="wallet-address">Wallet not connected</p>
+                    <button id="connectWallet" class="btn-connect">
+                        <i class="fas fa-wallet"></i> Connect Wallet
+                    </button>
+                    <p id="balance">Balance: 0 ETH</p>
+                </div>
+            </div>
+            <nav class="tabs">
+                <button class="tab-btn active" data-tab="products"><i class="fas fa-store"></i> Products</button>
+                <button class="tab-btn" data-tab="register"><i class="fas fa-plus-circle"></i> Add Product</button>
+                <button class="tab-btn" data-tab="orders"><i class="fas fa-shopping-cart"></i> My Orders</button>
+                <button class="tab-btn" data-tab="seller"><i class="fas fa-user-tie"></i> Seller Dashboard</button>
+                <button class="tab-btn" data-tab="admin"><i class="fas fa-user-shield"></i> Admin Panel</button>
+            </nav>
+        </header>
+
+        <main>
+            <section id="products" class="tab-content active">
+                <h2><i class="fas fa-boxes"></i> Product Catalog</h2>
+                <div class="search-box">
+                    <input type="text" id="searchProduct" placeholder="Search products...">
+                    <button class="btn-search"><i class="fas fa-search"></i></button>
+                </div>
+                <div id="productsList" class="products-grid"></div>
+            </section>
+
+            <section id="register" class="tab-content">
+                <h2><i class="fas fa-plus-square"></i> Add New Product</h2>
+                <form id="registerProductForm" class="form">
+                    <div class="form-group">
+                        <label for="productName"><i class="fas fa-tag"></i> Product name</label>
+                        <input type="text" id="productName" placeholder="Example: Gaming laptop" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="productDescription"><i class="fas fa-file-alt"></i> Description</label>
+                        <textarea id="productDescription" rows="4" placeholder="Full product description..." required></textarea>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="productPrice"><i class="fas fa-money-bill-wave"></i> Price (ETH)</label>
+                            <input type="number" id="productPrice" step="0.001" min="0.001" placeholder="0.01" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="productStock"><i class="fas fa-boxes"></i> Stock</label>
+                            <input type="number" id="productStock" min="1" placeholder="10" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-submit">
+                        <i class="fas fa-save"></i> Save product
+                    </button>
+                </form>
+            </section>
+
+            <section id="orders" class="tab-content">
+                <h2><i class="fas fa-clipboard-list"></i> My Orders</h2>
+                <div class="filters">
+                    <button class="filter-btn active" data-status="all">All</button>
+                    <button class="filter-btn" data-status="paid">Paid</button>
+                    <button class="filter-btn" data-status="shipped">Shipped</button>
+                    <button class="filter-btn" data-status="delivered">Delivered</button>
+                </div>
+                <div id="ordersList" class="orders-list"></div>
+            </section>
+
+            <section id="seller" class="tab-content">
+                <h2><i class="fas fa-chart-line"></i> Seller Dashboard</h2>
+                <div class="seller-stats">
+                    <div class="stat-card">
+                        <h3>My products</h3>
+                        <p id="myProductsCount">0</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Pending orders</h3>
+                        <p id="pendingOrdersCount">0</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Total revenue</h3>
+                        <p id="totalEarnings">0 ETH</p>
+                    </div>
+                </div>
+                <div id="sellerProducts" class="seller-products"></div>
+                <div id="sellerOrders" class="seller-orders"></div>
+            </section>
+
+            <section id="admin" class="tab-content">
+                <h2><i class="fas fa-cogs"></i> Admin Panel</h2>
+                <div class="admin-actions">
+                    <button id="viewAllOrders" class="btn-admin"><i class="fas fa-list"></i> View all orders</button>
+                    <button id="viewDisputes" class="btn-admin"><i class="fas fa-gavel"></i> View disputes</button>
+                </div>
+                <div id="adminContent"></div>
+            </section>
+        </main>
+
+        <div id="productModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h3 id="modalTitle">Purchase product</h3>
+                <div id="modalBody"></div>
+                <div class="modal-actions">
+                    <button id="confirmPurchase" class="btn-buy">Confirm purchase</button>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>Blockchain Course Project 1404 | Secure Online Shop with Smart Contract</p>
+            <p>Tech stack: Solidity, Hardhat, Web3.js, MetaMask</p>
+        </footer>
+    </div>
+
+    <div id="loading" class="loading">
+        <div class="spinner"></div>
+        <p>Loading...</p>
+    </div>
+
+    <div id="notification" class="notification"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
