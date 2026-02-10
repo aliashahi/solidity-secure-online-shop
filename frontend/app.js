@@ -43,6 +43,24 @@ class SecureOnlineShopApp {
             }
         });
 
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/9d6bb65d-d76f-4d4a-91bb-07d2d0c1b4f4', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                runId: 'multi-account-debug-1',
+                hypothesisId: 'H3',
+                location: 'frontend/app.js:setupEventListeners',
+                message: 'admin handlers setup',
+                data: {
+                    viewAllOrdersType: typeof this.viewAllOrders,
+                    viewDisputesType: typeof this.viewDisputes
+                },
+                timestamp: Date.now()
+            })
+        }).catch(() => {});
+        // #endregion
+
         const confirmBtn = document.getElementById('confirmPurchase');
         if (confirmBtn) {
             confirmBtn.addEventListener('click', () => {
@@ -108,6 +126,21 @@ class SecureOnlineShopApp {
                     this.contractABI,
                     this.contractAddress
                 );
+
+                // #region agent log
+                fetch('http://127.0.0.1:7243/ingest/9d6bb65d-d76f-4d4a-91bb-07d2d0c1b4f4', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        runId: 'multi-account-debug-1',
+                        hypothesisId: 'H1',
+                        location: 'frontend/app.js:connectWallet',
+                        message: 'wallet connected',
+                        data: { userAddress: this.userAddress },
+                        timestamp: Date.now()
+                    })
+                }).catch(() => {});
+                // #endregion
                 
                 this.updateWalletInfo();
                 await this.loadProducts();
@@ -117,6 +150,22 @@ class SecureOnlineShopApp {
                 
                 window.ethereum.on('accountsChanged', (accounts) => {
                     this.userAddress = accounts[0];
+
+                    // #region agent log
+                    fetch('http://127.0.0.1:7243/ingest/9d6bb65d-d76f-4d4a-91bb-07d2d0c1b4f4', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            runId: 'multi-account-debug-1',
+                            hypothesisId: 'H1',
+                            location: 'frontend/app.js:accountsChanged',
+                            message: 'accountsChanged fired',
+                            data: { userAddress: this.userAddress, accountsLength: accounts.length },
+                            timestamp: Date.now()
+                        })
+                    }).catch(() => {});
+                    // #endregion
+
                     this.updateWalletInfo();
                     this.loadProducts();
                     this.loadUserOrders();
@@ -371,7 +420,42 @@ class SecureOnlineShopApp {
         if (!this.contract || !this.userAddress) return;
         
         try {
+            // #region agent log
+            fetch('http://127.0.0.1:7243/ingest/9d6bb65d-d76f-4d4a-91bb-07d2d0c1b4f4', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    runId: 'multi-account-debug-1',
+                    hypothesisId: 'H2',
+                    location: 'frontend/app.js:loadUserOrders',
+                    message: 'loadUserOrders called',
+                    data: { userAddress: this.userAddress },
+                    timestamp: Date.now()
+                })
+            }).catch(() => {});
+            // #endregion
+
             const orders = await this.contract.methods.getBuyerOrders(this.userAddress).call();
+
+            // #region agent log
+            fetch('http://127.0.0.1:7243/ingest/9d6bb65d-d76f-4d4a-91bb-07d2d0c1b4f4', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    runId: 'multi-account-debug-1',
+                    hypothesisId: 'H2',
+                    location: 'frontend/app.js:loadUserOrders',
+                    message: 'orders fetched',
+                    data: {
+                        userAddress: this.userAddress,
+                        orderCount: orders.length,
+                        buyersSample: orders.slice(0, 3).map(o => o.buyer)
+                    },
+                    timestamp: Date.now()
+                })
+            }).catch(() => {});
+            // #endregion
+
             this.displayOrders(orders);
         } catch (error) {
             console.error('Error fetching orders:', error);
@@ -502,11 +586,11 @@ class SecureOnlineShopApp {
     switchTab(e) {
         const tabId = e.currentTarget.dataset.tab;
         
-        // حذف کلاس active از همه تب‌ها
+        // Remove active class from all tabs
         document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
         
-        // افزودن کلاس active به تب انتخاب شده
+        // Add active class to the selected tab
         e.currentTarget.classList.add('active');
         document.getElementById(tabId).classList.add('active');
         

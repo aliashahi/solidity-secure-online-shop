@@ -1,17 +1,17 @@
 async function main() {
   const [deployer] = await ethers.getSigners();
   
-  console.log("استقرار قرارداد با حساب:", deployer.address);
-  console.log("موجودی حساب:", (await deployer.getBalance()).toString());
+  console.log("Deploying contract with account:", deployer.address);
+  console.log("Account balance:", (await deployer.getBalance()).toString());
   
   const SecureOnlineShop = await ethers.getContractFactory("SecureOnlineShop");
   const shop = await SecureOnlineShop.deploy();
   
   await shop.deployed();
   
-  console.log("قرارداد فروشگاه آنلاین امن در آدرس:", shop.address);
+  console.log("SecureOnlineShop contract deployed at address:", shop.address);
   
-  // ذخیره آدرس قرارداد
+  // Save contract address and ABI for frontend
   const fs = require("fs");
   const contractsDir = __dirname + "/../frontend/contracts";
   
@@ -31,12 +31,12 @@ async function main() {
     JSON.stringify(artifact, null, 2)
   );
   
-  console.log("✅ آدرس قرارداد در frontend/contracts ذخیره شد");
+  console.log("✅ Contract address saved to frontend/contracts");
 }
 
 main()
   .then(() => process.exit(0))
   .catch((error) => {
-    console.error("❌ خطا در استقرار:", error);
+    console.error("❌ Deployment error:", error);
     process.exit(1);
   });

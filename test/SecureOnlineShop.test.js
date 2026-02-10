@@ -13,32 +13,32 @@ describe("SecureOnlineShop Contract", function () {
     await shop.deployed();
   });
   
-  describe("ثبت محصول", function () {
-    it("باید یک محصول جدید ثبت کند", async function () {
+  describe("Product registration", function () {
+    it("should register a new product", async function () {
       await shop.connect(seller).registerProduct(
-        "لپ‌تاپ",
-        "لپ‌تاپ گیمینگ 16 گیگابایت رم",
+        "Laptop",
+        "Gaming laptop with 16GB RAM",
         ethers.utils.parseEther("1.5"),
         10
       );
       
       const product = await shop.products(1);
-      expect(product.name).to.equal("لپ‌تاپ");
+      expect(product.name).to.equal("Laptop");
       expect(product.price).to.equal(ethers.utils.parseEther("1.5"));
     });
   });
   
-  describe("خرید محصول", function () {
+  describe("Product purchase", function () {
     beforeEach(async function () {
       await shop.connect(seller).registerProduct(
-        "موبایل",
-        "موبایل هوشمند 128 گیگابایت",
+        "Mobile phone",
+        "Smartphone with 128GB storage",
         ethers.utils.parseEther("0.5"),
         5
       );
     });
     
-    it("باید امکان خرید محصول را فراهم کند", async function () {
+    it("should allow purchasing a product", async function () {
       const productPrice = ethers.utils.parseEther("0.5");
       const quantity = 2;
       const totalPrice = productPrice.mul(quantity);
@@ -49,22 +49,22 @@ describe("SecureOnlineShop Contract", function () {
       
       const order = await shop.orders(1);
       expect(order.totalAmount).to.equal(totalPrice);
-      expect(order.status).to.equal(1); // وضعیت Paid
+      expect(order.status).to.equal(1); // Paid status
     });
   });
   
-  describe("لیست محصولات", function () {
-    it("باید لیست محصولات فعال را برگرداند", async function () {
+  describe("Products list", function () {
+    it("should return the list of active products", async function () {
       await shop.connect(seller).registerProduct(
-        "تبلت",
-        "تبلت 10 اینچی",
+        "Tablet",
+        "10-inch tablet",
         ethers.utils.parseEther("0.3"),
         8
       );
       
       await shop.connect(seller).registerProduct(
-        "هدفون",
-        "هدفون بی‌سیم",
+        "Headphones",
+        "Wireless headphones",
         ethers.utils.parseEther("0.1"),
         15
       );

@@ -1,7 +1,7 @@
 {
   "name": "secure-online-shop",
   "version": "1.0.0",
-  "description": "فروشگاه آنلاین امن با قرارداد هوشمند - پروژه درس بلاکچین 1404",
+  "description": "Secure online shop with smart contract - Blockchain course project 1404",
   "main": "index.js",
   "scripts": {
     "test": "npx hardhat test",
